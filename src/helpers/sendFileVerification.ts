@@ -7,6 +7,12 @@ export async function sendFileVerification(
   otp: string
 ): Promise<ApiResponse> {
   try {
+    await resend.emails.send({
+      from: "Acme <onboarding@resend.dev>",
+      to: email,
+      subject: "Message Me - Email Verification",
+      react: VerificationEmail({ username, otp }),
+    });
     return {
       success: true,
       message: "Email sent successfully",
@@ -19,3 +25,5 @@ export async function sendFileVerification(
     };
   }
 }
+// helpers/sendFileVerification.ts
+//libs/resend.ts
