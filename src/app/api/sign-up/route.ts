@@ -1,3 +1,4 @@
+import { sendEmailVerification } from "@/helpers/sendEmailVerification";
 import dbConnect from "@/lib/dbConnect";
 import { UserModel } from "@/model/User";
 import bcrypt from "bcryptjs";
@@ -26,7 +27,26 @@ export async function POST(request: Request) {
     const userByEmail = await UserModel.findOne({ email });
     const verifyCode = Math.random().toString(36).substring(7);
     if (userByEmail) {
-      true; // todo: return a response
+      if (userByEmail.isVerified) {
+        return Response.json(
+          {
+            success: false,
+            message: "User already exists",
+          },
+          {
+            status: 400,
+          }
+        );
+      } else {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        userByEmail.password = hashedPassword;
+        userByEmail.verifyCode = verifyCode;
+        userByEmail.verifuCodeExpires = new Date();
+        userByEmail.verifuCodeExpires.setHours(
+          userByEmail.verifuCodeExpires.getHours() + 1
+        );
+        await userByEmail.save();
+      }
     } else {
       const hashedPassword = await bcrypt.hash(password, 10);
       const expirydate = new Date();
@@ -44,6 +64,32 @@ export async function POST(request: Request) {
       await newUser.save();
       // why await here?
       // because we want to wait for the user to be saved in the database
+    }
+
+    // verification email
+    // send email with verification code
+    const emailResponse = await sendEmailVerification(email, name, verifyCode);
+    console.log(emailResponse);
+    if (emailResponse.success) {
+      return Response.json(
+        {
+          success: true,
+          message: "User created successfully",
+        },
+        {
+          status: 201,
+        }
+      );
+    } else {
+      return Response.json(
+        {
+          success: false,
+          message: "Failed to send verification email",
+        },
+        {
+          status: 500,
+        }
+      );
     }
   } catch (err) {
     console.error(err);
