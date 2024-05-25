@@ -5,9 +5,7 @@ import dbConnect from "@/lib/dbConnect";
 import { UserModel } from "@/model/User";
 
 export const authOptions: NextAuthOptions = {
-  // providers is used to configure the authentication providers
   providers: [
-    // CredentialsProvider is used to authenticate users using a username and password
     CredentialsProvider({
       id: "credentials",
       name: "Credentials",
@@ -19,12 +17,10 @@ export const authOptions: NextAuthOptions = {
         await dbConnect();
         try {
           const user = await UserModel.findOne({
-            // $or is a logical operator that performs a logical OR operation on an array of two or more expressions
             $or: [
               { email: credentials.identifier },
               { username: credentials.identifier },
             ],
-            // here the or condition is used to check the email or username
           });
           if (!user) {
             throw new Error("No user found with this email");

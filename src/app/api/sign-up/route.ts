@@ -1,106 +1,97 @@
-import { sendEmailVerification } from "@/helpers/sendEmailVerification";
 import dbConnect from "@/lib/dbConnect";
 import { UserModel } from "@/model/User";
 import bcrypt from "bcryptjs";
-
-// post request to create a new user
+import { sendEmailVerification } from "@/helpers/sendEmailVerification";
 export async function POST(request: Request) {
+  await dbConnect();
+
   try {
-    await dbConnect();
-    const { name, email, password } = await request.json();
-    const user = await UserModel.findOne({
-      name,
+    const { username, email, password } = await request.json();
+
+    const existingVerifiedUserByUsername = await UserModel.findOne({
+      username,
       isVerified: true,
     });
-    // check if the user already exists
-    if (user) {
+
+    if (existingVerifiedUserByUsername) {
       return Response.json(
         {
           success: false,
-          message: "User already exists",
+          message: "Username is already taken",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
-    const userByEmail = await UserModel.findOne({ email });
-    const verifyCode = Math.random().toString(36).substring(7);
-    if (userByEmail) {
-      if (userByEmail.isVerified) {
+
+    const existingUserByEmail = await UserModel.findOne({ email });
+    let verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    if (existingUserByEmail) {
+      if (existingUserByEmail.isVerified) {
         return Response.json(
           {
             success: false,
-            message: "User already exists",
+            message: "User already exists with this email",
           },
-          {
-            status: 400,
-          }
+          { status: 400 }
         );
       } else {
         const hashedPassword = await bcrypt.hash(password, 10);
-        userByEmail.password = hashedPassword;
-        userByEmail.verifyCode = verifyCode;
-        userByEmail.verifuCodeExpires = new Date();
-        userByEmail.verifuCodeExpires.setHours(
-          userByEmail.verifuCodeExpires.getHours() + 1
-        );
-        await userByEmail.save();
+        existingUserByEmail.password = hashedPassword;
+        existingUserByEmail.verifyCode = verifyCode;
+        existingUserByEmail.verifuCodeExpires = new Date(Date.now() + 3600000);
+        await existingUserByEmail.save();
       }
     } else {
       const hashedPassword = await bcrypt.hash(password, 10);
-      const expirydate = new Date();
-      expirydate.setHours(expirydate.getHours() + 1); // set expiry date to 1 hour from now
+      const expiryDate = new Date();
+      expiryDate.setHours(expiryDate.getHours() + 1);
+
       const newUser = new UserModel({
-        name,
+        username,
         email,
         password: hashedPassword,
-        verifyCode: verifyCode,
-        verifuCodeExpires: expirydate,
+        verifyCode,
+        verifyCodeExpiry: expiryDate,
         isVerified: false,
         isAcceptingMessages: true,
         messages: [],
       });
+
       await newUser.save();
-      // why await here?
-      // because we want to wait for the user to be saved in the database
     }
 
-    // verification email
-    // send email with verification code
-    const emailResponse = await sendEmailVerification(email, name, verifyCode);
-    console.log(emailResponse);
-    if (emailResponse.success) {
-      return Response.json(
-        {
-          success: true,
-          message: "User created successfully",
-        },
-        {
-          status: 201,
-        }
-      );
-    } else {
+    // Send verification email
+    const emailResponse = await sendEmailVerification(
+      email,
+      username,
+      verifyCode
+    );
+    if (!emailResponse.success) {
       return Response.json(
         {
           success: false,
-          message: "Failed to send verification email",
+          message: emailResponse.message,
         },
-        {
-          status: 500,
-        }
+        { status: 500 }
       );
     }
-  } catch (err) {
-    console.error(err);
+
+    return Response.json(
+      {
+        success: true,
+        message: "User registered successfully. Please verify your account.",
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Error registering user:", error);
     return Response.json(
       {
         success: false,
-        message: "Failed to create user",
+        message: "Error registering user",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
