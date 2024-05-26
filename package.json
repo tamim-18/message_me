@@ -54,6 +54,7 @@
     "react-dom": "^18",
     "react-email": "^2.1.2",
     "react-hook-form": "^7.51.5",
+    "react-hook-form-resolvers": "^0.0.1",
     "react-resizable-panels": "^2.0.19",
     "resend": "^3.2.0",
     "sonner": "^1.4.41",
