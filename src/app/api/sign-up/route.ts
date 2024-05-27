@@ -2,18 +2,23 @@ import dbConnect from "@/lib/dbConnect";
 import { UserModel } from "@/model/User";
 import bcrypt from "bcryptjs";
 import { sendEmailVerification } from "@/helpers/sendEmailVerification";
+import { CloudHail } from "lucide-react";
+
 export async function POST(request: Request) {
   await dbConnect();
 
   try {
     const { username, email, password } = await request.json();
+    console.log("Request body:", { username, email, password });
 
     const existingVerifiedUserByUsername = await UserModel.findOne({
       username,
       isVerified: true,
     });
+    console.log(existingVerifiedUserByUsername);
 
     if (existingVerifiedUserByUsername) {
+      console.log("Username is already taken");
       return Response.json(
         {
           success: false,
@@ -24,6 +29,7 @@ export async function POST(request: Request) {
     }
 
     const existingUserByEmail = await UserModel.findOne({ email });
+    console.log(existingUserByEmail);
     let verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
 
     if (existingUserByEmail) {
@@ -41,6 +47,7 @@ export async function POST(request: Request) {
         existingUserByEmail.verifyCode = verifyCode;
         existingUserByEmail.verifuCodeExpires = new Date(Date.now() + 3600000);
         await existingUserByEmail.save();
+        console.log(existingUserByEmail);
       }
     } else {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -57,6 +64,7 @@ export async function POST(request: Request) {
         isAcceptingMessages: true,
         messages: [],
       });
+      console.log(newUser.toJSON());
 
       await newUser.save();
     }
@@ -67,6 +75,7 @@ export async function POST(request: Request) {
       username,
       verifyCode
     );
+    console.log("Email response:", emailResponse);
     if (!emailResponse.success) {
       return Response.json(
         {
